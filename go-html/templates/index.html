@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Hourly Temperature</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-matrix@1.1.0/dist/chartjs-chart-matrix.min.js"></script>
+</head>
+<body>
+    <div>
+        <h1>Forecast of temperature in chiang mai air port</h1>
+        <h2>line graph<h2>
+        <canvas id="tempChart" width="300" height="150"></canvas>
+        <h2>Heatmap<h2>
+        <canvas id="heatmapChart" width="300" height="150"></canvas>
+    </div>
+
+    <script>
+        const labels = {{ .Labels }};
+        const temps = {{ .Temps }}; 
+
+        const ctx = document.getElementById('tempChart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Temperature (°C)',
+                    data: temps,
+                    borderColor: 'rgb(75, 192, 192)',
+                    fill: false,
+                    tension: 0.2
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: false
+                    }
+                }
+            }
+        });
+    </script>
+    <script>
+        // สร้างข้อมูล heatmap
+        const heatmapData = labels.map((label, index) => {
+            const [datePart, timePart] = label.split(" ");
+            const hour = parseInt(timePart.split(":")[0], 10)
+            return {
+                x: hour,
+                y: datePart,  
+                v: temps[index]
+            };
+        });
+
+        const uniqueDates = [...new Set(heatmapData.map(d => d.y))];  
+
+        const heatmapCtx = document.getElementById('heatmapChart').getContext('2d');
+        const heatmapChart = new Chart(heatmapCtx, {
+            type: 'matrix',
+            data: {
+                datasets: [{
+                    label: 'Heatmap',
+                    data: heatmapData,
+                    backgroundColor(context) {
+                        const value = context.dataset.data[context.dataIndex].v;
+                        const min = 20;
+                        const max = 40;
+                        const percent = Math.min(Math.max((value - min) / (max - min), 0), 1); // ปรับค่าระหว่าง 0-1
+                        const hue = (1 - percent) * 240; // 240 = น้ำเงิน → 0 = แดง
+                        return `hsl(${hue}, 100%, 50%)`;
+                    },
+                    width: ({ chart }) => chart.chartArea ? chart.chartArea.width / 24 : 10,
+                    height: ({ chart }) => chart.chartArea ? chart.chartArea.height / uniqueDates.length : 10,
+                }]
+            },
+            options: {
+                scales: {
+                    x: {
+                        type: 'linear',
+                        min: 0,
+                        max: 23,
+                        ticks: {
+                            stepSize: 1,
+                            callback: val => `${val}:00`
+                        },
+                        title: {
+                            display: true,
+                            text: 'ชั่วโมง'
+                        }
+                    },
+                    y: {
+                        type: 'category',
+                        labels: uniqueDates,
+                        title: {
+                            display: true,
+                            text: 'วันที่'
+                        }
+                    }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            title: ctx => `วันที่ ${ctx[0].raw.y} เวลา ${ctx[0].raw.x}:00`,
+                            label: ctx => `อุณหภูมิ: ${ctx.raw.v}°C`
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+    
+</body>
+</html>
